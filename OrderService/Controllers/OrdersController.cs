@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OrderService.DTOs;
+using OrderService.Exceptions;
 using OrderService.Models;
 using OrderService.Responses;
 using OrderService.Services;
@@ -20,8 +21,20 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateOrderDto dto)
     {
-        var order = await _service.CreateOrderAsync(dto);
-        return Ok(ApiResponse<Order>.SuccessResponse(order, "Order created successfully"));
+        var result = await _service.CreateOrderAsync(dto);
+
+        if (!result.EventPublished)
+        {
+            return Ok(ApiResponse<Order>.SuccessResponse(
+                result.Order,
+                "Order created successfully, but notification service is currently unavailable."
+            ));
+        }
+
+        return Ok(ApiResponse<Order>.SuccessResponse(
+            result.Order,
+            "Order created successfully."
+        ));
     }
 
     [HttpGet]
@@ -32,9 +45,13 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<Order> GetById(Guid id)
     {
         var order = await _service.GetByIdAsync(id);
-        return Ok(ApiResponse<Order>.SuccessResponse(order));
+
+        if (order == null)
+            throw new NotFoundException($"Order {id} not found");
+
+        return order;
     }
 }

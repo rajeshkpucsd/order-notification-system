@@ -17,47 +17,46 @@ public class OrderService : IOrderService
         _publisher = publisher;
     }
 
-    public async Task<Order> CreateOrderAsync(CreateOrderDto dto)
+    public async Task<OrderResult> CreateOrderAsync(CreateOrderDto dto)
     {
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            CustomerEmail = dto.CustomerEmail,
+            ProductCode = dto.ProductCode,
+            Quantity = dto.Quantity,
+            Status = "CREATED",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _repository.AddAsync(order);
+
+        bool published = true;
+
         try
         {
-            var order = new Order
+            var evt = new OrderCreatedEvent
             {
-                Id = Guid.NewGuid(),
-                CustomerEmail = dto.CustomerEmail,
-                ProductCode = dto.ProductCode,
-                Quantity = dto.Quantity,
-                Status = "CREATED",
-                CreatedAt = DateTime.UtcNow
+                EventId = Guid.NewGuid(),
+                OrderId = order.Id,
+                Email = order.CustomerEmail,
+                ProductCode = order.ProductCode,
+                Quantity = order.Quantity
             };
 
-            await _repository.AddAsync(order);
-
-            try
-            {
-                var evt = new OrderCreatedEvent
-                {
-                    EventId = Guid.NewGuid(),
-                    OrderId = order.Id,
-                    Email = order.CustomerEmail,
-                    ProductCode = order.ProductCode,
-                    Quantity = order.Quantity
-                };
-
-                _publisher.Publish(evt,"order-created");
-            }
-            catch (Exception ex)
-            {
-                // important: do NOT fail order
-                Console.WriteLine($"RabbitMQ publish failed: {ex.Message}");
-            }
-
-            return order;
+            _publisher.Publish(evt,"order-created");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            throw; // let middleware handle
+            published = false;
+            Console.WriteLine("Failed to publish OrderCreated event");
         }
+
+        return new OrderResult
+        {
+            Order = order,
+            EventPublished = published
+        };
     }
 
     public async Task<Order> GetByIdAsync(Guid id)

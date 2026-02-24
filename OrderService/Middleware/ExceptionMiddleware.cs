@@ -27,9 +27,9 @@ public class ExceptionMiddleware
             context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
             await WriteResponse(context, ex.Message);
         }
-        catch (KeyNotFoundException ex)
+        catch (NotFoundException ex)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
             await WriteResponse(context, ex.Message);
         }
         catch (UnauthorizedAccessException ex)

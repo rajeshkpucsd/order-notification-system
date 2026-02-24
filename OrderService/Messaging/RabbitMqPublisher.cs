@@ -25,17 +25,17 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         using var _channel = _connection.CreateModel();
 
         _channel.QueueDeclare(
-    queue: "order-created",
-    durable: true,
-    exclusive: false,
-    autoDelete: false,
+    queue: "order-created", // Queue name
+    durable: true, // Messages will survive broker restarts
+    exclusive: false, //Allow multiple consumers to access the queue
+    autoDelete: false, // The queue won't be deleted when the last consumer disconnects
     arguments: null);
 
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
 
         _channel.BasicPublish(
-            exchange: "",
+            exchange: "", // Default exchange
             routingKey: queueName,
             basicProperties: null,
             body: body);

@@ -9,5 +9,5 @@ public class Notification
     public string Type { get; set; } = "ORDER_CREATED";
     public bool Delivered { get; set; }
     public string? ErrorMessage { get; set; }
-    public DateTime OccurredAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
