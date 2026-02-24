@@ -6,6 +6,37 @@ Two independent services communicate asynchronously through a message broker.
 
 ---
 
+# How to Run the Project
+git clone <https://github.com/rajeshkpucsd/order-notification-system>
+cd <repo-folder>
+
+## Prerequisites
+
+* Install Docker Desktop
+* Make sure Docker is running
+
+---
+
+## Run the system
+
+From the project root directory (the folder containing `docker-compose.yml`) run:
+
+```
+docker-compose up --build
+```
+
+Docker will start:
+
+* order-service
+* notification-service
+* rabbitmq
+* sqlserver
+
+Important:
+On the first run, SQL Server initialization takes ~30–40 seconds.
+Swagger pages may not open immediately — please wait before testing.
+
+---
 ## What the system does
 
 1. A user creates an order using the Order Service.
@@ -41,37 +72,7 @@ Each service:
 * Docker & Docker Compose
 * BackgroundService worker
 
----
 
-# How to Run the Project
-
-## Prerequisites
-
-* Install Docker Desktop
-* Make sure Docker is running
-
----
-
-## Run the system
-
-From the project root directory (the folder containing `docker-compose.yml`) run:
-
-```
-docker-compose up --build
-```
-
-Docker will start:
-
-* order-service
-* notification-service
-* rabbitmq
-* sqlserver
-
-Important:
-On the first run, SQL Server initialization takes ~30–40 seconds.
-Swagger pages may not open immediately — please wait before testing.
-
----
 
 ## Stop the system
 
