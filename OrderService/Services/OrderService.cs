@@ -64,7 +64,7 @@ public class OrderService : IOrderService
         var order = await _repository.GetByIdAsync(id);
 
         if (order == null)
-            throw new KeyNotFoundException($"Order {id} not found");
+            throw new NotFoundException($"Order {id} not found");
 
         return order;
     }

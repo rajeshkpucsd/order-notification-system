@@ -45,13 +45,10 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<Order> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id)
     {
         var order = await _service.GetByIdAsync(id);
 
-        if (order == null)
-            throw new NotFoundException($"Order {id} not found");
-
-        return order;
+        return Ok(ApiResponse<Order>.SuccessResponse(order));
     }
 }
