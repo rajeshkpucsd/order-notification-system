@@ -25,19 +25,22 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         using var _channel = _connection.CreateModel();
 
         _channel.QueueDeclare(
-    queue: "order-created", // Queue name
-    durable: true, // Messages will survive broker restarts
-    exclusive: false, //Allow multiple consumers to access the queue
-    autoDelete: false, // The queue won't be deleted when the last consumer disconnects
-    arguments: null);
+            queue: queueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
 
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
 
+        var properties = _channel.CreateBasicProperties();
+        properties.DeliveryMode = 2; // persistent
+
         _channel.BasicPublish(
             exchange: "", // Default exchange
             routingKey: queueName,
-            basicProperties: null,
+            basicProperties: properties,
             body: body);
     }
 }

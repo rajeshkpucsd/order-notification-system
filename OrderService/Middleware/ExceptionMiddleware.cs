@@ -1,5 +1,6 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
+using FluentValidation;
 using OrderService.Exceptions;
 using OrderService.Responses;
 
@@ -37,7 +38,19 @@ public class ExceptionMiddleware
             context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
             await WriteResponse(context, ex.Message);
         }
-        catch (Exception ex)
+        catch (ValidationException ex)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+
+            var errors = ex.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(
+                    g => JsonNamingPolicy.CamelCase.ConvertName(g.Key),
+                    g => g.Select(e => e.ErrorMessage).ToArray()
+                );
+
+            await WriteResponse(context, "Validation failed", errors);
+        }        catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled Exception");
 
@@ -46,11 +59,11 @@ public class ExceptionMiddleware
         }
     }
 
-    private static async Task WriteResponse(HttpContext context, string message)
+    private static async Task WriteResponse(HttpContext context, string message, object? errors = null)
     {
         context.Response.ContentType = "application/json";
 
-        var response = ApiResponse<string>.FailResponse(message);
+        var response = ApiResponse<string>.FailResponse(message, errors);
         var json = JsonSerializer.Serialize(response);
 
         await context.Response.WriteAsync(json);

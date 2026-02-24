@@ -6,6 +6,7 @@ using NotificationService.Events;
 using NotificationService.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Threading;
 
 namespace NotificationService.Messaging;
 
@@ -41,12 +42,24 @@ public class RabbitMqConsumer : BackgroundService
 
         consumer.Received += async (sender, ea) =>
         {
+            if (stoppingToken.IsCancellationRequested)
+            {
+                _channel.BasicAck(ea.DeliveryTag, false);
+                return;
+            }
+
             var body = ea.Body.ToArray();
             var json = Encoding.UTF8.GetString(body);
 
             try
             {
                 var evt = JsonSerializer.Deserialize<OrderCreatedEvent>(json);
+                if (evt == null)
+                {
+                    Console.WriteLine("Invalid message payload: null event.");
+                    _channel.BasicAck(ea.DeliveryTag, false);
+                    return;
+                }
 
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
@@ -79,6 +92,11 @@ public class RabbitMqConsumer : BackgroundService
                 
                 _channel.BasicAck(ea.DeliveryTag, false); 
             }
+            catch (JsonException)
+            {
+                Console.WriteLine("Invalid message payload: JSON parse failed.");
+                _channel.BasicAck(ea.DeliveryTag, false);
+            }
             catch (DbUpdateException)
             {
                 Console.WriteLine("Duplicate event detected by DB constraint.");
@@ -99,5 +117,27 @@ public class RabbitMqConsumer : BackgroundService
             consumer: consumer);
 
         return Task.CompletedTask;
+    }
+
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _channel?.Close();
+            _connection?.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error closing RabbitMQ connection: " + ex.Message);
+        }
+
+        return base.StopAsync(cancellationToken);
+    }
+
+    public override void Dispose()
+    {
+        _channel?.Dispose();
+        _connection?.Dispose();
+        base.Dispose();
     }
 }
