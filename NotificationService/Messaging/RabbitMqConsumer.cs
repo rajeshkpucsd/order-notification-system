@@ -19,26 +19,66 @@ public class RabbitMqConsumer : BackgroundService
     public RabbitMqConsumer(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
+    }
+    //public RabbitMqConsumer(IServiceScopeFactory scopeFactory)
+    //{
+    //    _scopeFactory = scopeFactory;
 
+    //    var factory = new ConnectionFactory()
+    //    {
+    //        HostName = "rabbitmq"//"localhost"
+    //    };
+
+    //    _connection = factory.CreateConnection();
+    //    _channel = _connection.CreateModel();
+
+    //    _channel.QueueDeclare(
+    //queue: "order-created",
+    //durable: true,
+    //exclusive: false,
+    //autoDelete: false,
+    //arguments: null);
+    //}
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
         var factory = new ConnectionFactory()
         {
-            HostName = "localhost"
+            HostName = "rabbitmq",
+            UserName = "guest",
+            Password = "guest",
+            Port = 5672,
+            DispatchConsumersAsync = true
         };
 
-        _connection = factory.CreateConnection();
-        _channel = _connection.CreateModel();
+        // 🔁 Retry loop until RabbitMQ is ready
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                Console.WriteLine("Attempting RabbitMQ connection...");
+
+                _connection = factory.CreateConnection();
+                _channel = _connection.CreateModel();
+
+                Console.WriteLine("RabbitMQ Connected!");
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"RabbitMQ not ready: {ex.Message}");
+                await Task.Delay(5000, stoppingToken);
+            }
+        }
 
         _channel.QueueDeclare(
-    queue: "order-created",
-    durable: true,
-    exclusive: false,
-    autoDelete: false,
-    arguments: null);
-    }
+            queue: "order-created",
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        var consumer = new EventingBasicConsumer(_channel);
+        var consumer = new AsyncEventingBasicConsumer(_channel);
 
         consumer.Received += async (sender, ea) =>
         {
@@ -64,7 +104,6 @@ public class RabbitMqConsumer : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
 
-                // Idempotency check
                 var exists = await db.Notifications.AnyAsync(n => n.EventId == evt.EventId);
                 if (exists)
                 {
@@ -72,7 +111,7 @@ public class RabbitMqConsumer : BackgroundService
                     _channel.BasicAck(ea.DeliveryTag, false);
                     return;
                 }
-                //Can send email here
+
                 await Task.Delay(1000);
 
                 var notification = new Notification
@@ -89,24 +128,12 @@ public class RabbitMqConsumer : BackgroundService
                 await db.SaveChangesAsync();
 
                 Console.WriteLine($"Email sent to {evt.Email}");
-                
-                _channel.BasicAck(ea.DeliveryTag, false); 
-            }
-            catch (JsonException)
-            {
-                Console.WriteLine("Invalid message payload: JSON parse failed.");
-                _channel.BasicAck(ea.DeliveryTag, false);
-            }
-            catch (DbUpdateException)
-            {
-                Console.WriteLine("Duplicate event detected by DB constraint.");
 
                 _channel.BasicAck(ea.DeliveryTag, false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Processing failed: " + ex.Message);
-
                 _channel.BasicNack(ea.DeliveryTag, false, true);
             }
         };
@@ -116,7 +143,7 @@ public class RabbitMqConsumer : BackgroundService
             autoAck: false,
             consumer: consumer);
 
-        return Task.CompletedTask;
+        await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)

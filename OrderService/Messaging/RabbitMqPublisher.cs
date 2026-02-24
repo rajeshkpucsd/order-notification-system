@@ -1,34 +1,50 @@
 ﻿using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Channels;
 
 namespace OrderService.Messaging;
 
-public class RabbitMqPublisher : IRabbitMqPublisher
+public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
 {
-    private readonly IConfiguration _configuration;
+    private readonly IConnection _connection;
+    private readonly IModel _channel;
 
-    public RabbitMqPublisher(IConfiguration configuration)
+    public RabbitMqPublisher()
     {
-        _configuration = configuration;
+        var factory = new ConnectionFactory()
+        {
+            HostName = "rabbitmq",
+            UserName = "guest",
+            Password = "guest",
+            Port = 5672
+        };
+
+        // retry until broker ready
+        while (true)
+        {
+            try
+            {
+                Console.WriteLine("Connecting to RabbitMQ Publisher...");
+                _connection = factory.CreateConnection();
+                _channel = _connection.CreateModel();
+                Console.WriteLine("Publisher connected to RabbitMQ");
+                break;
+            }
+            catch
+            {
+                Console.WriteLine("RabbitMQ not ready for publisher, retrying...");
+                Thread.Sleep(5000);
+            }
+        }
     }
 
     public void Publish<T>(T message, string queueName)
     {
-        var factory = new ConnectionFactory()
-        {
-            HostName = "localhost"
-        };
-
-        using var _connection = factory.CreateConnection();
-        using var _channel = _connection.CreateModel();
-
         _channel.QueueDeclare(
             queue: queueName,
-            durable: true, // Make the queue durable to survive RabbitMQ restarts
-            exclusive: false, // Allow multiple connections to the same queue
-            autoDelete: false, // Don't delete the queue when the last consumer disconnects
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
             arguments: null);
 
         var json = JsonSerializer.Serialize(message);
@@ -38,9 +54,17 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         properties.DeliveryMode = 2; // persistent
 
         _channel.BasicPublish(
-            exchange: "", 
+            exchange: "",
             routingKey: queueName,
             basicProperties: properties,
             body: body);
+
+        Console.WriteLine($"Message published to {queueName}");
+    }
+
+    public void Dispose()
+    {
+        _channel?.Close();
+        _connection?.Close();
     }
 }
