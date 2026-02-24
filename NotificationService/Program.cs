@@ -5,19 +5,14 @@ using NotificationService.Data;
 using NotificationService.Messaging;
 
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database
 builder.Services.AddDbContext<NotificationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Background RabbitMQ consumer
 builder.Services.AddHostedService<RabbitMqConsumer>();
 
-// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -30,7 +25,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Swagger middleware
+
 app.UseSwagger();
 app.UseSwaggerUI();
 

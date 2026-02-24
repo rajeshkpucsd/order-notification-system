@@ -7,5 +7,5 @@ public class OrderCreatedEvent
     public string Email { get; set; }
     public string ProductCode { get; set; }
     public int Quantity { get; set; }
-    public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

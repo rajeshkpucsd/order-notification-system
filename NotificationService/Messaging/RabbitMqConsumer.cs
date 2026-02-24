@@ -56,13 +56,10 @@ public class RabbitMqConsumer : BackgroundService
                 if (exists)
                 {
                     Console.WriteLine("Duplicate event ignored.");
-
-                    // already processed → ACK
                     _channel.BasicAck(ea.DeliveryTag, false);
                     return;
                 }
-
-                // Simulate email sending
+                //Can send email here
                 await Task.Delay(1000);
 
                 var notification = new Notification
@@ -72,30 +69,26 @@ public class RabbitMqConsumer : BackgroundService
                     OrderId = evt.OrderId,
                     Email = evt.Email,
                     Delivered = true,
-                    OccurredAt = evt.OccurredAt
+                    CreatedAt = evt.CreatedAt
                 };
 
                 db.Notifications.Add(notification);
                 await db.SaveChangesAsync();
 
                 Console.WriteLine($"Email sent to {evt.Email}");
-
-                // SUCCESS → ACK message
-                _channel.BasicAck(ea.DeliveryTag, false);
+                
+                _channel.BasicAck(ea.DeliveryTag, false); 
             }
             catch (DbUpdateException)
             {
-                // duplicate insert race condition
                 Console.WriteLine("Duplicate event detected by DB constraint.");
 
-                // still success logically → ACK
                 _channel.BasicAck(ea.DeliveryTag, false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Processing failed: " + ex.Message);
 
-                // FAILURE → requeue message
                 _channel.BasicNack(ea.DeliveryTag, false, true);
             }
         };
