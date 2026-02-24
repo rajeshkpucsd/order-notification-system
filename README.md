@@ -8,6 +8,7 @@ Two independent services communicate asynchronously through a message broker.
 
 # How to Run the Project
 git clone <https://github.com/rajeshkpucsd/order-notification-system>
+
 cd <repo-folder>
 
 ## Prerequisites
