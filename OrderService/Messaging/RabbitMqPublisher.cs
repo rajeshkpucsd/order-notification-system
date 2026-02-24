@@ -26,9 +26,9 @@ public class RabbitMqPublisher : IRabbitMqPublisher
 
         _channel.QueueDeclare(
             queue: queueName,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
+            durable: true, // Make the queue durable to survive RabbitMQ restarts
+            exclusive: false, // Allow multiple connections to the same queue
+            autoDelete: false, // Don't delete the queue when the last consumer disconnects
             arguments: null);
 
         var json = JsonSerializer.Serialize(message);
@@ -38,7 +38,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         properties.DeliveryMode = 2; // persistent
 
         _channel.BasicPublish(
-            exchange: "", // Default exchange
+            exchange: "", 
             routingKey: queueName,
             basicProperties: properties,
             body: body);
