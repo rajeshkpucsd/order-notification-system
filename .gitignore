@@ -1,0 +1,37 @@
+# Build folders
+
+bin/
+obj/
+
+# Visual Studio
+
+.vs/
+*.user
+*.suo
+
+# Rider / VSCode
+
+.idea/
+.vscode/
+
+# Logs
+
+*.log
+
+# Local databases
+
+*.mdf
+*.ldf
+
+# EF migrations snapshots cache
+
+Migrations/*Designer.cs
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Docker (we add later)
+
+docker-data/
