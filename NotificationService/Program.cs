@@ -29,25 +29,10 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// API endpoints
 app.MapGet("/api/notifications", async (NotificationDbContext db) =>
 {
     return await db.Notifications.ToListAsync();
 });
 
-app.MapGet("/api/notifications/{id}", async (Guid id, NotificationDbContext db) =>
-{
-    var notification = await db.Notifications.FindAsync(id);
-    return notification == null ? Results.NotFound() : Results.Ok(notification);
-});
-
-app.MapGet("/api/notifications/order/{orderId}", async (Guid orderId, NotificationDbContext db) =>
-{
-    var list = await db.Notifications
-        .Where(n => n.OrderId == orderId)
-        .ToListAsync();
-
-    return Results.Ok(list);
-});
 
 app.Run();

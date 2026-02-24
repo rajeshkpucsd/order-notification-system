@@ -22,7 +22,7 @@ namespace NotificationService.Migrations
                     Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Delivered = table.Column<bool>(type: "bit", nullable: false),
                     ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
