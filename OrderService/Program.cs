@@ -70,6 +70,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine("Migration failed: " + ex.Message);
+        throw;
     }
 }
 app.Run();
