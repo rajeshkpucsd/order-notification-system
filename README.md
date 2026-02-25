@@ -26,8 +26,8 @@ When running with Docker Compose:
 
 ## How to run (Docker)
 
-Get clone https://github.com/rajeshkpucsd/order-notification-system
-cd into the repo directory
+- Get clone https://github.com/rajeshkpucsd/order-notification-system
+- cd into the repo directory
 
 From repo:
 
