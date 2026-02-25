@@ -5,7 +5,7 @@ I built this as a small event-driven demo with two .NET services:
 - `OrderService`: creates orders and publishes an event to RabbitMQ
 - `NotificationService`: consumes that event and stores a notification
 
-There is no direct HTTP call between services. They communicate asynchronously through RabbitMQ.
+They communicate asynchronously through RabbitMQ.
 
 ## Stack
 
@@ -23,56 +23,22 @@ When running with Docker Compose:
 - Notification Swagger: `http://localhost:5002/swagger`
 - RabbitMQ UI: `http://localhost:15672` (`guest` / `guest`)
 
-Port mapping from `docker-compose.yml`:
-
-- Order: container `8080` -> host `5001`
-- Notification: container `8081` -> host `5002`
-
-When running locally (non-Docker), launch profiles are:
-
-- Order: `http://localhost:5001`
-- Notification: `http://localhost:5002`
 
 ## How to run (Docker)
 
-From repo root:
+Get clone https://github.com/rajeshkpucsd/order-notification-system
+cd into the repo directory
+
+From repo:
 
 ```bash
 docker-compose up --build
 ```
-
-First startup can take a little longer because SQL Server needs time to initialize.
-
 Stop:
 
 ```bash
 docker-compose down
 ```
-
-Delete volumes too:
-
-```bash
-docker-compose down -v
-```
-
-## How to run locally
-
-Prereqs:
-
-- .NET 8 SDK
-- SQL Server LocalDB (or any reachable SQL Server)
-- RabbitMQ running locally on `5672`
-
-Run in two terminals:
-
-```bash
-dotnet run --project OrderService --launch-profile http
-```
-
-```bash
-dotnet run --project NotificationService --launch-profile NotificationService
-```
-
 ## Current runtime behavior
 
 ### Order creation API behavior
@@ -113,8 +79,8 @@ If migration fails, startup logs the error and throws (fail-fast). Service will 
 {
   "eventId": "guid",
   "orderId": "guid",
-  "email": "customer@example.com",
-  "productCode": "PRD-1001",
+  "email": "customer@test.com",
+  "productCode": "P1",
   "quantity": 2,
   "createdAt": "2026-02-25T10:15:30Z"
 }
@@ -124,4 +90,4 @@ If migration fails, startup logs the error and throws (fail-fast). Service will 
 
 - I have not added Outbox pattern yet.
 - So if order is saved but event publish fails, delivery is not guaranteed.
-- For production, I would add outbox + background publisher.
+- For production, I would add outbox + background publisher and add more test cases.
