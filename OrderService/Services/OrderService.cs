@@ -31,6 +31,7 @@ public class OrderService : IOrderService
 
         await _repository.AddAsync(order);
 
+        // Enhancements : Implement retry logic if publish fails
         bool published = true;
 
         try

@@ -40,7 +40,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
             catch
             {
                 Console.WriteLine("RabbitMQ not ready for publisher, retrying...");
-                Thread.Sleep(5000);
+                Thread.Sleep(1000);
             }
         }
     }

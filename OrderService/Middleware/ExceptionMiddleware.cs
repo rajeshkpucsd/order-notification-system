@@ -1,8 +1,10 @@
-using System.Net;
-using System.Text.Json;
 using FluentValidation;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using OrderService.Exceptions;
 using OrderService.Responses;
+using System.Net;
+using System.Text.Json;
 
 namespace OrderService.Middleware;
 
@@ -22,35 +24,34 @@ public class ExceptionMiddleware
         try
         {
             await _next(context);
-        }
-        catch (BadRequestException ex)
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-            await WriteResponse(context, ex.Message);
-        }
+        }      
         catch (NotFoundException ex)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             await WriteResponse(context, ex.Message);
         }
-        catch (UnauthorizedAccessException ex)
+        catch (SqlException ex)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-            await WriteResponse(context, ex.Message);
+            _logger.LogError(ex, "Database connection failure");
+
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await WriteResponse(context, "Database is temporarily unavailable. Please try again later.");
         }
-        catch (ValidationException ex)
+        catch (DbUpdateException ex)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            _logger.LogError(ex, "Database update failure");
 
-            var errors = ex.Errors
-                .GroupBy(e => e.PropertyName)
-                .ToDictionary(
-                    g => JsonNamingPolicy.CamelCase.ConvertName(g.Key),
-                    g => g.Select(e => e.ErrorMessage).ToArray()
-                );
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await WriteResponse(context, "Service temporarily unavailable. Please try again later.");
+        }
+        catch (TimeoutException ex)
+        {
+            _logger.LogError(ex, "Timeout occurred");
 
-            await WriteResponse(context, "Validation failed", errors);
-        }        catch (Exception ex)
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await WriteResponse(context, "The service is taking too long to respond. Please retry.");
+        }
+        catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled Exception");
 
