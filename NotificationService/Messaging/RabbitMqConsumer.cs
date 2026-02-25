@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Data;
 using NotificationService.Events;
@@ -138,13 +139,20 @@ public class RabbitMqConsumer : BackgroundService
 
                 _logger.LogInformation("Email sent for EventId {EventId} to email {Email}",
                     evt.EventId, evt.Email);
-                _channel.BasicAck(ea.DeliveryTag, false); // Acknowledge message
+                _channel.BasicAck(ea.DeliveryTag, false);
+            }
+            catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+            {
+                _logger.LogInformation(ex,
+                    "Duplicate notification insert detected. Acknowledging message. DeliveryTag {DeliveryTag}",
+                    ea.DeliveryTag);
+                _channel.BasicAck(ea.DeliveryTag, false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed processing RabbitMQ message. DeliveryTag {DeliveryTag}",
                     ea.DeliveryTag);
-                _channel.BasicNack(ea.DeliveryTag, false, true); // Requeue message
+                _channel.BasicNack(ea.DeliveryTag, false, true);
             }
         };
         
@@ -176,5 +184,17 @@ public class RabbitMqConsumer : BackgroundService
         _channel?.Dispose();
         _connection?.Dispose();
         base.Dispose();
+    }
+
+    private static bool IsDuplicateKeyException(DbUpdateException ex)
+    {
+        if (ex.InnerException is SqlException sqlEx)
+        {
+            // 2601: Cannot insert duplicate key row in object with unique index
+            // 2627: Violation of PRIMARY KEY or UNIQUE KEY constraint
+            return sqlEx.Number is 2601 or 2627;
+        }
+
+        return false;
     }
 }
