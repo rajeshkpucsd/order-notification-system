@@ -67,7 +67,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Migration failed: " + ex.Message);
+        app.Logger.LogError(ex, "Migration failed during NotificationService startup");
         throw;
     }
 }
