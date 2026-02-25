@@ -13,13 +13,18 @@ public class RabbitMqConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<RabbitMqConsumer> _logger;
     private IConnection _connection;
     private IModel _channel;
 
-    public RabbitMqConsumer(IServiceScopeFactory scopeFactory, IConfiguration configuration)
+    public RabbitMqConsumer(
+        IServiceScopeFactory scopeFactory,
+        IConfiguration configuration,
+        ILogger<RabbitMqConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _configuration = configuration;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -30,6 +35,8 @@ public class RabbitMqConsumer : BackgroundService
         var port = section.GetValue<int?>("Port") ?? 5672;
         var userName = section.GetValue<string>("UserName") ?? "guest";
         var password = section.GetValue<string>("Password") ?? "guest";
+        var startupRetryCount = section.GetValue<int?>("StartupRetryCount") ?? 5;
+        var startupRetryDelaySeconds = section.GetValue<int?>("StartupRetryDelaySeconds") ?? 5;
 
         var factory = new ConnectionFactory()
         {
@@ -40,24 +47,39 @@ public class RabbitMqConsumer : BackgroundService
             DispatchConsumersAsync = true
         };
 
-        // Retry loop until RabbitMQ is ready
-        while (!stoppingToken.IsCancellationRequested)
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= startupRetryCount && !stoppingToken.IsCancellationRequested; attempt++)
         {
             try
             {
-                Console.WriteLine("Attempting RabbitMQ connection...");
+                _logger.LogInformation("Connecting to RabbitMQ. Attempt {Attempt}/{MaxAttempts}",
+                    attempt, startupRetryCount);
 
                 _connection = factory.CreateConnection();
                 _channel = _connection.CreateModel();
 
-                Console.WriteLine("RabbitMQ Connected!");
+                _logger.LogInformation("RabbitMQ connected at {Host}:{Port}", hostName, port);
                 break;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"RabbitMQ not ready: {ex.Message}");
-                await Task.Delay(5000, stoppingToken);
+                lastException = ex;
+                _logger.LogWarning(ex,
+                    "RabbitMQ connection attempt {Attempt}/{MaxAttempts} failed. Retrying in {DelaySeconds}s",
+                    attempt, startupRetryCount, startupRetryDelaySeconds);
+
+                if (attempt < startupRetryCount)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(startupRetryDelaySeconds), stoppingToken);
+                }
             }
+        }
+
+        if (_connection == null || _channel == null)
+        {
+            throw new InvalidOperationException(
+                $"Unable to connect to RabbitMQ after {startupRetryCount} attempts.",
+                lastException);
         }
         // Declare the queue
         _channel.QueueDeclare(
@@ -85,7 +107,7 @@ public class RabbitMqConsumer : BackgroundService
                 var evt = JsonSerializer.Deserialize<OrderCreatedEvent>(json);
                 if (evt == null)
                 {
-                    Console.WriteLine("Invalid message payload: null event.");
+                    _logger.LogWarning("Invalid message payload: null event.");
                     _channel.BasicAck(ea.DeliveryTag, false);
                     return;
                 }
@@ -96,7 +118,7 @@ public class RabbitMqConsumer : BackgroundService
                 var exists = await db.Notifications.AnyAsync(n => n.EventId == evt.EventId);
                 if (exists)
                 {
-                    Console.WriteLine("Duplicate event ignored.");
+                    _logger.LogInformation("Duplicate event {EventId} ignored.", evt.EventId);
                     _channel.BasicAck(ea.DeliveryTag, false);
                     return;
                 }
@@ -116,13 +138,15 @@ public class RabbitMqConsumer : BackgroundService
                 db.Notifications.Add(notification);
                 await db.SaveChangesAsync();
 
-                Console.WriteLine($"Email sent to {evt.Email}");
+                _logger.LogInformation("Notification stored for EventId {EventId} and email {Email}",
+                    evt.EventId, evt.Email);
 
                 _channel.BasicAck(ea.DeliveryTag, false); // Acknowledge message
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Processing failed: " + ex.Message);
+                _logger.LogError(ex, "Failed processing RabbitMQ message. DeliveryTag {DeliveryTag}",
+                    ea.DeliveryTag);
                 _channel.BasicNack(ea.DeliveryTag, false, true); // Requeue message
             }
         };
@@ -144,7 +168,7 @@ public class RabbitMqConsumer : BackgroundService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error closing RabbitMQ connection: " + ex.Message);
+            _logger.LogError(ex, "Error closing RabbitMQ connection");
         }
 
         return base.StopAsync(cancellationToken);
