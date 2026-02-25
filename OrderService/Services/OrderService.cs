@@ -11,10 +11,12 @@ public class OrderService : IOrderService
 {
     private readonly IOrderRepository _repository;
     private readonly IRabbitMqPublisher _publisher;
-    public OrderService(IOrderRepository repository, IRabbitMqPublisher publisher)
+    private readonly ILogger<OrderService> _logger;
+    public OrderService(IOrderRepository repository, IRabbitMqPublisher publisher, ILogger<OrderService> logger)
     {
         _repository = repository;
         _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task<OrderResult> CreateOrderAsync(CreateOrderDto dto)
@@ -50,7 +52,7 @@ public class OrderService : IOrderService
         catch (Exception ex)
         {
             published = false;
-            Console.WriteLine("Failed to publish OrderCreated event");
+            _logger.LogError(ex, "Failed to publish OrderCreated event for OrderId {OrderId}", order.Id);
         }
 
         return new OrderResult

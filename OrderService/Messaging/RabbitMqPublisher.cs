@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using RabbitMQ.Client;
 
 namespace OrderService.Messaging;
@@ -9,16 +8,21 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
 {
     private readonly IConnection _connection;
     private readonly IModel _channel;
+    private readonly ILogger<RabbitMqPublisher> _logger;
 
-    public RabbitMqPublisher(IConfiguration configuration)
+    public RabbitMqPublisher(IConfiguration configuration, ILogger<RabbitMqPublisher> logger)
     {
+        _logger = logger;
+
         var section = configuration.GetSection("RabbitMq");
         var hostName = section.GetValue<string>("HostName") ?? "localhost";
         var port = section.GetValue<int?>("Port") ?? 5672;
         var userName = section.GetValue<string>("UserName") ?? "guest";
         var password = section.GetValue<string>("Password") ?? "guest";
-        // Configure connection factory
-        var factory = new ConnectionFactory()
+        var startupRetryCount = section.GetValue<int?>("StartupRetryCount") ?? 5;
+        var startupRetryDelaySeconds = section.GetValue<int?>("StartupRetryDelaySeconds") ?? 5;
+
+        var factory = new ConnectionFactory
         {
             HostName = hostName,
             UserName = userName,
@@ -26,28 +30,41 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
             Port = port
         };
 
-        // retry until broker ready
-        while (true)
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= startupRetryCount; attempt++)
         {
             try
             {
-                Console.WriteLine("Connecting to RabbitMQ Publisher...");
+                _logger.LogInformation("Connecting to RabbitMQ publisher. Attempt {Attempt}/{MaxAttempts}",
+                    attempt, startupRetryCount);
+
                 _connection = factory.CreateConnection();
                 _channel = _connection.CreateModel();
-                Console.WriteLine("Publisher connected to RabbitMQ");
-                break;
+
+                _logger.LogInformation("Publisher connected to RabbitMQ at {Host}:{Port}", hostName, port);
+                return;
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine("RabbitMQ not ready for publisher, retrying...");
-                Thread.Sleep(1000);
+                lastException = ex;
+                _logger.LogWarning(ex,
+                    "RabbitMQ connection attempt {Attempt}/{MaxAttempts} failed. Retrying in {DelaySeconds}s",
+                    attempt, startupRetryCount, startupRetryDelaySeconds);
+
+                if (attempt < startupRetryCount)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(startupRetryDelaySeconds));
+                }
             }
         }
+
+        throw new InvalidOperationException(
+            $"Unable to connect to RabbitMQ after {startupRetryCount} attempts.",
+            lastException);
     }
 
     public void Publish<T>(T message, string queueName)
     {
-        // Ensure the queue exists before publishing
         _channel.QueueDeclare(
             queue: queueName,
             durable: true,
@@ -59,16 +76,15 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
         var body = Encoding.UTF8.GetBytes(json);
 
         var properties = _channel.CreateBasicProperties();
-        properties.DeliveryMode = 2; // persistent
+        properties.DeliveryMode = 2;
 
-        // Publish the message to the specified queue
         _channel.BasicPublish(
             exchange: "",
             routingKey: queueName,
             basicProperties: properties,
             body: body);
 
-        Console.WriteLine($"Message published to {queueName}");
+        _logger.LogInformation("Message published to queue {QueueName}", queueName);
     }
 
     public void Dispose()

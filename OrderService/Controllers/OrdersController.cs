@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OrderService.DTOs;
-using OrderService.Exceptions;
 using OrderService.Models;
 using OrderService.Responses;
 using OrderService.Services;
@@ -25,9 +24,9 @@ public class OrdersController : ControllerBase
 
         if (!result.EventPublished)
         {
-            return Ok(ApiResponse<Order>.SuccessResponse(
+            return StatusCode(StatusCodes.Status202Accepted, ApiResponse<Order>.SuccessResponse(
                 result.Order,
-                "Order created successfully, but notification service is currently unavailable."
+                "Order saved, but event publish failed. Notification may be delayed."
             ));
         }
 

@@ -1,5 +1,3 @@
-using FluentValidation;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Exceptions;
 using OrderService.Responses;
@@ -29,27 +27,13 @@ public class ExceptionMiddleware
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             await WriteResponse(context, ex.Message);
-        }
-        catch (SqlException ex)
-        {
-            _logger.LogError(ex, "Database connection failure");
-
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            await WriteResponse(context, "Database is temporarily unavailable. Please try again later.");
-        }
+        }       
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, "Database update failure");
 
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await WriteResponse(context, "Service temporarily unavailable. Please try again later.");
-        }
-        catch (TimeoutException ex)
-        {
-            _logger.LogError(ex, "Timeout occurred");
-
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            await WriteResponse(context, "The service is taking too long to respond. Please retry.");
         }
         catch (Exception ex)
         {
