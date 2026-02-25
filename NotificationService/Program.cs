@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -8,7 +7,7 @@ using NotificationService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+
 builder.Services.AddDbContext<NotificationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -22,7 +21,6 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
 builder.Services.AddHostedService<RabbitMqConsumer>();
 
 builder.Services.AddEndpointsApiExplorer();
-// Add Swagger/OpenAPI support
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -37,7 +35,6 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// API endpoints
 app.MapGet("/api/notifications", async (NotificationDbContext db) =>
 {
     return await db.Notifications.ToListAsync();
@@ -57,7 +54,6 @@ app.MapGet("/api/notifications/order/{orderId}", async (Guid orderId, Notificati
 
     return Results.Ok(list);
 });
-//Apply migrations at startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();

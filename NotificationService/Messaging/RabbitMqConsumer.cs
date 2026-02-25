@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using NotificationService.Data;
 using NotificationService.Events;
 using NotificationService.Models;

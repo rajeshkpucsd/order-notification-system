@@ -15,7 +15,7 @@ public class NotificationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Notification>()
-            .HasIndex(n => n.EventId) // Create an index on EventId.
-            .IsUnique(); // Ensure EventId is unique to prevent duplicate notifications.
+            .HasIndex(n => n.EventId) 
+            .IsUnique(); 
     }
 }
