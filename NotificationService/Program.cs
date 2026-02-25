@@ -6,6 +6,10 @@ using NotificationService.Data;
 using NotificationService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 
 builder.Services.AddDbContext<NotificationDbContext>(options =>
