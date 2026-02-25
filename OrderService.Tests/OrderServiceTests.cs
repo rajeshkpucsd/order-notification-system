@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Moq;
+using Microsoft.Extensions.Logging;
 using OrderService.DTOs;
 using OrderService.Events;
 using OrderService.Messaging;
@@ -10,16 +11,19 @@ namespace OrderService.Tests
     {
         private readonly Mock<IOrderRepository> _repoMock;
         private readonly Mock<IRabbitMqPublisher> _publisherMock;
+        private readonly Mock<ILogger<OrderService.Services.OrderService>> _loggerMock;
         private readonly OrderService.Services.OrderService _service;
 
         public OrderServiceTests()
         {
             _repoMock = new Mock<IOrderRepository>();
             _publisherMock = new Mock<IRabbitMqPublisher>();
+            _loggerMock = new Mock<ILogger<OrderService.Services.OrderService>>();
 
             _service = new OrderService.Services.OrderService(
                 _repoMock.Object,
-                _publisherMock.Object
+                _publisherMock.Object,
+                _loggerMock.Object
             );
         }
 

@@ -6,4 +6,5 @@
   </Folder>
   <Project Path="NotificationService/NotificationService.csproj" />
   <Project Path="OrderService/OrderService.csproj" />
+  <Project Path="OrderService.Tests/OrderService.Tests.csproj" />
 </Solution>
