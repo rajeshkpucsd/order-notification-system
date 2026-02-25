@@ -147,10 +147,10 @@ public class RabbitMqConsumer : BackgroundService
                 _channel.BasicNack(ea.DeliveryTag, false, true); // Requeue message
             }
         };
-        // Start consuming messages
+        
         _channel.BasicConsume(
             queue: "order-created",
-            autoAck: false, // Manual acknowledgment
+            autoAck: false, 
             consumer: consumer);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
