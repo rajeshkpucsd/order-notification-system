@@ -1,11 +1,11 @@
 # Order + Notification System
 
-This is a small event-driven demo with two .NET services:
+I built this as a small event-driven demo with two .NET services:
 
 - `OrderService`: creates orders and publishes an event to RabbitMQ
 - `NotificationService`: consumes that event and stores a notification
 
-No direct HTTP call happens between services. Communication is async through RabbitMQ.
+There is no direct HTTP call between services. They communicate asynchronously through RabbitMQ.
 
 ## Stack
 
@@ -122,6 +122,6 @@ If migration fails, startup logs the error and throws (fail-fast). Service will 
 
 ## Notes / limitations
 
-- This demo does not implement Outbox pattern yet.
-- So if order is saved but event publish fails, event delivery is not guaranteed.
-- For production, add outbox + background publisher.
+- I have not added Outbox pattern yet.
+- So if order is saved but event publish fails, delivery is not guaranteed.
+- For production, I would add outbox + background publisher.

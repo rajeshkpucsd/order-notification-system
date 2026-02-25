@@ -30,7 +30,6 @@ public class RabbitMqConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // RabbitMQ connection setup
         var section = _configuration.GetSection("RabbitMq");
         var hostName = section.GetValue<string>("HostName") ?? "localhost";
         var port = section.GetValue<int?>("Port") ?? 5672;
@@ -82,12 +81,11 @@ public class RabbitMqConsumer : BackgroundService
                 $"Unable to connect to RabbitMQ after {startupRetryCount} attempts.",
                 lastException);
         }
-        // Declare the queue
         _channel.QueueDeclare(
             queue: "order-created",
-            durable: true, // Restart safe
-            exclusive: false, //Allow multiple
-            autoDelete: false, // No delete
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
             arguments: null);
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
