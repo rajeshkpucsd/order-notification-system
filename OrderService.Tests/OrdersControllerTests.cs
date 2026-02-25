@@ -26,7 +26,7 @@ public class OrdersControllerTests
     {
         var dto = new CreateOrderDto
         {
-            CustomerEmail = "customer@example.com",
+            CustomerEmail = "customer@test.com",
             ProductCode = "P100",
             Quantity = 2
         };
@@ -59,7 +59,7 @@ public class OrdersControllerTests
     {
         var dto = new CreateOrderDto
         {
-            CustomerEmail = "customer@example.com",
+            CustomerEmail = "customer@test.com",
             ProductCode = "P200",
             Quantity = 1
         };
