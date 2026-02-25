@@ -1,295 +1,127 @@
-﻿# Order & Notification Microservices (Event-Driven Architecture)
+# Order + Notification System
 
-This project demonstrates an event-driven microservices system built using .NET, RabbitMQ, SQL Server and Docker.
+This is a small event-driven demo with two .NET services:
 
-Two independent services communicate asynchronously through a message broker.
+- `OrderService`: creates orders and publishes an event to RabbitMQ
+- `NotificationService`: consumes that event and stores a notification
 
----
+No direct HTTP call happens between services. Communication is async through RabbitMQ.
 
-# How to Run the Project
-git clone <https://github.com/rajeshkpucsd/order-notification-system>
-cd "repo-folder"
+## Stack
 
-## Prerequisites
+- .NET 8
+- ASP.NET Core Web API
+- Entity Framework Core + SQL Server
+- RabbitMQ
+- Docker Compose
 
-* Install Docker Desktop
-* Make sure Docker is running
+## Services and ports
 
----
+When running with Docker Compose:
 
-## Run the system
+- Order Swagger: `http://localhost:5001/swagger`
+- Notification Swagger: `http://localhost:5002/swagger`
+- RabbitMQ UI: `http://localhost:15672` (`guest` / `guest`)
 
-From the project root directory (the folder containing `docker-compose.yml`) run:
+Port mapping from `docker-compose.yml`:
 
-```
+- Order: container `8080` -> host `5001`
+- Notification: container `8081` -> host `5002`
+
+When running locally (non-Docker), launch profiles are:
+
+- Order: `http://localhost:5001`
+- Notification: `http://localhost:5002`
+
+## How to run (Docker)
+
+From repo root:
+
+```bash
 docker-compose up --build
 ```
 
-Docker will start:
+First startup can take a little longer because SQL Server needs time to initialize.
 
-* order-service
-* notification-service
-* rabbitmq
-* sqlserver
+Stop:
 
-Important:
-On the first run, SQL Server initialization takes ~30–40 seconds.
-Swagger pages may not open immediately — please wait before testing.
-
----
-## Run locally without Docker
-
-### Prerequisites
-
-* .NET 8 SDK
-* SQL Server LocalDB (or a local SQL Server instance)
-* RabbitMQ running locally (default user `guest` / `guest`)
-
-### Steps
-
-1. Start RabbitMQ on your machine (default port `5672`).
-2. Ensure SQL Server LocalDB is available (or update the connection strings in `OrderService/appsettings.json` and `NotificationService/appsettings.json`).
-3. From the project root, run the services in two terminals:
-
-```
-dotnet run --project OrderService --launch-profile http
-```
-
-```
-dotnet run --project NotificationService --launch-profile NotificationService
-```
-
-The local profiles use `ASPNETCORE_ENVIRONMENT=Local`. Toggle the local vs Docker config by uncommenting the relevant block in each `appsettings.json`.
-
-Local URLs:
-
-* Order Service Swagger: http://localhost:5001/swagger
-* Notification Service Swagger: http://localhost:5002/swagger
-
----
-## What the system does
-
-1. A user creates an order using the Order Service.
-2. Order Service saves the order in its database
-3. It publishes an `Order-Created` event to RabbitMQ
-4. Notification Service consumes the event
-5. Notification Service stores a notification (simulating sending an email)
-
-No direct HTTP communication exists between services.
-
----
-
-## Architecture
-
-Client → Order Service → RabbitMQ → Notification Service → Notification Database
-
-This follows an event-driven microservices architecture.
-
-Each service:
-
-* has its own database
-* can run independently
-* communicates only through events
-
----
-
-## Technologies Used
-
-* .NET 8 Web API
-* Entity Framework Core
-* RabbitMQ (message broker)
-* SQL Server (separate DB per service)
-* Docker & Docker Compose
-* BackgroundService worker
-
-
-
-## Stop the system
-
-```
+```bash
 docker-compose down
 ```
 
-To also delete databases:
+Delete volumes too:
 
-```
+```bash
 docker-compose down -v
 ```
 
----
+## How to run locally
 
-# Accessing the Services
+Prereqs:
 
-| Service                      | URL                           |
-| ---------------------------- | ----------------------------- |
-| Order Service Swagger        | http://localhost:5001/swagger |
-| Notification Service Swagger | http://localhost:5002/swagger |
-| RabbitMQ Dashboard           | http://localhost:15672        |
+- .NET 8 SDK
+- SQL Server LocalDB (or any reachable SQL Server)
+- RabbitMQ running locally on `5672`
 
-### RabbitMQ Credentials
+Run in two terminals:
 
-Username: `guest`
-Password: `guest`
-
-You can open Queues → order-created to observe message processing.
-
----
-
-## Why ports 5001 and 5002?
-
-Inside Docker containers services run on ports 8080 and 8081.
-Docker maps them to host machine ports:
-
-| Service              | Container Port | Host Port |
-| -------------------- | -------------- | --------- |
-| Order Service        | 8080           | 5001      |
-| Notification Service | 8081           | 5002      |
-
----
-
-# Message Broker Choice & Configuration
-
-RabbitMQ was chosen because:
-
-* Lightweight
-* Easy Docker setup
-* Reliable message delivery
-* Supports acknowledgments
-* Widely used in enterprise systems
-
-### Queue Configuration
-
-Queue name:
-
-```
-order-created
+```bash
+dotnet run --project OrderService --launch-profile http
 ```
 
-Queue settings:
+```bash
+dotnet run --project NotificationService --launch-profile NotificationService
+```
 
-* Durable = true
-* Exclusive = false
-* AutoDelete = false
+## Current runtime behavior
 
-Message setting:
+### Order creation API behavior
 
-* Persistent messages enabled (DeliveryMode = 2)
+`POST /api/orders`
 
-This ensures messages survive broker restart.
+- If order save + publish succeed: returns `200 OK`
+- If order save succeeds but publish fails: returns `202 Accepted`
+  - Message: `Order saved, but event publish failed. Notification may be delayed.`
 
----
+### RabbitMQ startup retry
 
-# Event Format
+Both services retry RabbitMQ connection at startup using config:
 
-When an order is created, the Order Service publishes the following event:
+- `RabbitMq:StartupRetryCount` (default in repo: `5`)
+- `RabbitMq:StartupRetryDelaySeconds` (default in repo: `5`)
+
+If retries are exhausted, startup fails.
+
+### DB migration behavior
+
+Both services run EF migrations on startup.
+
+If migration fails, startup logs the error and throws (fail-fast). Service will not continue in a broken DB state.
+
+### Idempotency in NotificationService
+
+`NotificationService` stores notifications with a unique index on `EventId`.
+
+- It checks if event already exists before insert.
+- It also handles duplicate-key DB exceptions and `Ack`s those messages (instead of requeue), to avoid duplicate-message retry loops.
+
+## Event shape
+
+`OrderService` publishes `OrderCreatedEvent`:
 
 ```json
 {
   "eventId": "guid",
-  "occurredAt": "2026-02-24T10:15:30Z",
   "orderId": "guid",
-  "customerEmail": "customer@example.com",
+  "email": "customer@example.com",
   "productCode": "PRD-1001",
-  "quantity": 2
+  "quantity": 2,
+  "createdAt": "2026-02-25T10:15:30Z"
 }
 ```
 
-## Event Fields
+## Notes / limitations
 
-| Field         | Description                   |
-| ------------- | ----------------------------- |
-| eventId       | Unique identifier for event   |
-| occurredAt    | Timestamp when event occurred |
-| orderId       | Order identifier              |
-| customerEmail | Customer email                |
-| productCode   | Product identifier            |
-| quantity      | Ordered quantity              |
-
----
-
-# Error Handling Strategy
-
-The system is designed to be resilient and reliable.
-
-### 1. Startup Resilience
-
-Notification service does not crash if RabbitMQ starts slowly.
-It continuously retries connection until broker becomes available.
-
----
-
-### 2. Manual Acknowledgement
-
-Messages are acknowledged only after successful database save.
-
-If processing fails:
-
-* message is requeued
-* it will be delivered again
-
----
-
-### 3. Idempotent Consumer (Duplicate Protection)
-
-The notification service checks:
-
-* If the event was already processed
-* Uses `eventId` to prevent duplicates
-
-This avoids duplicate notifications.
-
----
-
-### 4. At-Least-Once Delivery
-
-Because of:
-
-* durable queues
-* persistent messages
-* manual acknowledgement
-
-The system guarantees:
-
-An event will be delivered at least once.
-
-Duplicate delivery is handled safely by idempotency.
-
----
-
-### 5. Database Safety
-
-Migrations are executed at startup but wrapped in safe handling so the service does not crash if the database already exists.
-
----
-
-# Design Decisions
-
-* Separate database per microservice
-* Asynchronous communication
-* Background worker consumer
-* Singleton publisher connection
-* Durable messaging
-* Retry-based startup
-
----
-
-# Possible Improvements
-
-* Dead Letter Queue (DLQ)
-* Outbox Pattern
-* Email service integration
-* Centralized logging
-* Health checks
-* Kubernetes deployment
-
----
-
-# Conclusion
-
-This project demonstrates:
-
-* Event-driven microservices
-* Reliable messaging using RabbitMQ
-* Idempotent consumer handling
-* Resilient startup behavior
-* Dockerized distributed system
+- This demo does not implement Outbox pattern yet.
+- So if order is saved but event publish fails, event delivery is not guaranteed.
+- For production, add outbox + background publisher.
