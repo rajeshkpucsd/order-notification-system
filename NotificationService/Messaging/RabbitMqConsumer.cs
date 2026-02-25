@@ -121,9 +121,7 @@ public class RabbitMqConsumer : BackgroundService
                     _logger.LogInformation("Duplicate event {EventId} ignored.", evt.EventId);
                     _channel.BasicAck(ea.DeliveryTag, false);
                     return;
-                }
-
-                await Task.Delay(1000);
+                }                
 
                 var notification = new Notification
                 {
@@ -138,9 +136,8 @@ public class RabbitMqConsumer : BackgroundService
                 db.Notifications.Add(notification);
                 await db.SaveChangesAsync();
 
-                _logger.LogInformation("Notification stored for EventId {EventId} and email {Email}",
+                _logger.LogInformation("Email sent for EventId {EventId} to email {Email}",
                     evt.EventId, evt.Email);
-
                 _channel.BasicAck(ea.DeliveryTag, false); // Acknowledge message
             }
             catch (Exception ex)
