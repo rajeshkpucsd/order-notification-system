@@ -11,6 +11,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
 
     public RabbitMqPublisher()
     {
+        // Configure connection factory
         var factory = new ConnectionFactory()
         {
             HostName = "rabbitmq",
@@ -40,6 +41,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
 
     public void Publish<T>(T message, string queueName)
     {
+        // Ensure the queue exists before publishing
         _channel.QueueDeclare(
             queue: queueName,
             durable: true,
@@ -53,6 +55,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
         var properties = _channel.CreateBasicProperties();
         properties.DeliveryMode = 2; // persistent
 
+        // Publish the message to the specified queue
         _channel.BasicPublish(
             exchange: "",
             routingKey: queueName,

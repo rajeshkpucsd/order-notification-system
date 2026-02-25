@@ -19,29 +19,11 @@ public class RabbitMqConsumer : BackgroundService
     public RabbitMqConsumer(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
-    }
-    //public RabbitMqConsumer(IServiceScopeFactory scopeFactory)
-    //{
-    //    _scopeFactory = scopeFactory;
-
-    //    var factory = new ConnectionFactory()
-    //    {
-    //        HostName = "rabbitmq"//"localhost"
-    //    };
-
-    //    _connection = factory.CreateConnection();
-    //    _channel = _connection.CreateModel();
-
-    //    _channel.QueueDeclare(
-    //queue: "order-created",
-    //durable: true,
-    //exclusive: false,
-    //autoDelete: false,
-    //arguments: null);
-    //}
+    }   
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // RabbitMQ connection setup
         var factory = new ConnectionFactory()
         {
             HostName = "rabbitmq",
@@ -51,7 +33,7 @@ public class RabbitMqConsumer : BackgroundService
             DispatchConsumersAsync = true
         };
 
-        // 🔁 Retry loop until RabbitMQ is ready
+        // Retry loop until RabbitMQ is ready
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -70,13 +52,13 @@ public class RabbitMqConsumer : BackgroundService
                 await Task.Delay(5000, stoppingToken);
             }
         }
-
+        // Declare the queue
         _channel.QueueDeclare(
             queue: "order-created",
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: null);
+            durable: true, // Restart safe
+            exclusive: false, //Allow multiple
+            autoDelete: false, // No delete
+            arguments: null); 
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
 
@@ -129,18 +111,18 @@ public class RabbitMqConsumer : BackgroundService
 
                 Console.WriteLine($"Email sent to {evt.Email}");
 
-                _channel.BasicAck(ea.DeliveryTag, false);
+                _channel.BasicAck(ea.DeliveryTag, false); // Acknowledge message
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Processing failed: " + ex.Message);
-                _channel.BasicNack(ea.DeliveryTag, false, true);
+                _channel.BasicNack(ea.DeliveryTag, false, true); // Requeue message
             }
         };
-
+        // Start consuming messages
         _channel.BasicConsume(
             queue: "order-created",
-            autoAck: false,
+            autoAck: false, // Manual acknowledgment
             consumer: consumer);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);

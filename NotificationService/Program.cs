@@ -8,7 +8,7 @@ using NotificationService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+// Add services to the container.
 builder.Services.AddDbContext<NotificationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -22,6 +22,7 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
 builder.Services.AddHostedService<RabbitMqConsumer>();
 
 builder.Services.AddEndpointsApiExplorer();
+// Add Swagger/OpenAPI support
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -30,6 +31,7 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 });
+// Listen on all interfaces for Docker compatibility
 builder.WebHost.UseUrls("http://0.0.0.0:8081");
 var app = builder.Build();
 
@@ -57,7 +59,7 @@ app.MapGet("/api/notifications/order/{orderId}", async (Guid orderId, Notificati
 
     return Results.Ok(list);
 });
-
+//Apply migrations at startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
