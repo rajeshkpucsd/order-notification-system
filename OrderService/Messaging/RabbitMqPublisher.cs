@@ -1,6 +1,7 @@
-﻿using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using RabbitMQ.Client;
 
 namespace OrderService.Messaging;
 
@@ -9,15 +10,20 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
     private readonly IConnection _connection;
     private readonly IModel _channel;
 
-    public RabbitMqPublisher()
+    public RabbitMqPublisher(IConfiguration configuration)
     {
+        var section = configuration.GetSection("RabbitMq");
+        var hostName = section.GetValue<string>("HostName") ?? "localhost";
+        var port = section.GetValue<int?>("Port") ?? 5672;
+        var userName = section.GetValue<string>("UserName") ?? "guest";
+        var password = section.GetValue<string>("Password") ?? "guest";
         // Configure connection factory
         var factory = new ConnectionFactory()
         {
-            HostName = "rabbitmq",
-            UserName = "guest",
-            Password = "guest",
-            Port = 5672
+            HostName = hostName,
+            UserName = userName,
+            Password = password,
+            Port = port
         };
 
         // retry until broker ready

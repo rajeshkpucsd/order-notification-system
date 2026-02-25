@@ -1,35 +1,43 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using NotificationService.Data;
 using NotificationService.Events;
 using NotificationService.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Threading;
 
 namespace NotificationService.Messaging;
 
 public class RabbitMqConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConfiguration _configuration;
     private IConnection _connection;
     private IModel _channel;
 
-    public RabbitMqConsumer(IServiceScopeFactory scopeFactory)
+    public RabbitMqConsumer(IServiceScopeFactory scopeFactory, IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
-    }   
+        _configuration = configuration;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // RabbitMQ connection setup
+        var section = _configuration.GetSection("RabbitMq");
+        var hostName = section.GetValue<string>("HostName") ?? "localhost";
+        var port = section.GetValue<int?>("Port") ?? 5672;
+        var userName = section.GetValue<string>("UserName") ?? "guest";
+        var password = section.GetValue<string>("Password") ?? "guest";
+
         var factory = new ConnectionFactory()
         {
-            HostName = "rabbitmq",
-            UserName = "guest",
-            Password = "guest",
-            Port = 5672,
+            HostName = hostName,
+            UserName = userName,
+            Password = password,
+            Port = port,
             DispatchConsumersAsync = true
         };
 
@@ -58,7 +66,7 @@ public class RabbitMqConsumer : BackgroundService
             durable: true, // Restart safe
             exclusive: false, //Allow multiple
             autoDelete: false, // No delete
-            arguments: null); 
+            arguments: null);
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
 

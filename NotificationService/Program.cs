@@ -31,8 +31,6 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 });
-// Listen on all interfaces for Docker compatibility
-builder.WebHost.UseUrls("http://0.0.0.0:8081");
 var app = builder.Build();
 
 

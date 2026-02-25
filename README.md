@@ -37,6 +37,36 @@ On the first run, SQL Server initialization takes ~30–40 seconds.
 Swagger pages may not open immediately — please wait before testing.
 
 ---
+## Run locally without Docker
+
+### Prerequisites
+
+* .NET 8 SDK
+* SQL Server LocalDB (or a local SQL Server instance)
+* RabbitMQ running locally (default user `guest` / `guest`)
+
+### Steps
+
+1. Start RabbitMQ on your machine (default port `5672`).
+2. Ensure SQL Server LocalDB is available (or update the connection strings in `OrderService/appsettings.json` and `NotificationService/appsettings.json`).
+3. From the project root, run the services in two terminals:
+
+```
+dotnet run --project OrderService --launch-profile http
+```
+
+```
+dotnet run --project NotificationService --launch-profile NotificationService
+```
+
+The local profiles use `ASPNETCORE_ENVIRONMENT=Local`. Toggle the local vs Docker config by uncommenting the relevant block in each `appsettings.json`.
+
+Local URLs:
+
+* Order Service Swagger: http://localhost:5001/swagger
+* Notification Service Swagger: http://localhost:5002/swagger
+
+---
 ## What the system does
 
 1. A user creates an order using the Order Service.
