@@ -93,4 +93,5 @@ If migration fails, startup logs the error and throws. Service will not continue
 
 - I have not added Outbox pattern yet.
 - So if order is saved but event publish fails, delivery is not guaranteed.
-- For production, I would add outbox + background publisher and add more test cases.
+- Could have added more test coverage, especially for failure scenarios such as network being down. Request parameters validations etc.
+- For now the status of orders are updated through Rabbit MQ but I feel we could have done better by webhooks. 
