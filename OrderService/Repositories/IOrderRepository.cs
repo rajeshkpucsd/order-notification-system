@@ -7,4 +7,5 @@ public interface IOrderRepository
     Task<Order> AddAsync(Order order);
     Task<Order?> GetByIdAsync(Guid id);
     Task<List<Order>> GetAllAsync();
+    Task<bool> UpdateStatusAsync(Guid id, string status);
 }

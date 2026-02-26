@@ -1,4 +1,4 @@
-﻿namespace OrderService.Messaging;
+namespace NotificationService.Messaging;
 
 public interface IRabbitMqPublisher
 {

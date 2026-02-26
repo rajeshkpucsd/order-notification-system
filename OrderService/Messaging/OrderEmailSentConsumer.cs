@@ -1,33 +1,27 @@
 using System.Text;
 using System.Text.Json;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
-using NotificationService.Data;
-using NotificationService.Events;
-using NotificationService.Models;
+using OrderService.Events;
+using OrderService.Repositories;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace NotificationService.Messaging;
+namespace OrderService.Messaging;
 
-public class RabbitMqConsumer : BackgroundService
+public class OrderEmailSentConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfiguration _configuration;
-    private readonly IRabbitMqPublisher _publisher;
-    private readonly ILogger<RabbitMqConsumer> _logger;
+    private readonly ILogger<OrderEmailSentConsumer> _logger;
     private IConnection _connection;
     private IModel _channel;
 
-    public RabbitMqConsumer(
+    public OrderEmailSentConsumer(
         IServiceScopeFactory scopeFactory,
         IConfiguration configuration,
-        IRabbitMqPublisher publisher,
-        ILogger<RabbitMqConsumer> logger)
+        ILogger<OrderEmailSentConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _configuration = configuration;
-        _publisher = publisher;
         _logger = logger;
     }
 
@@ -84,6 +78,7 @@ public class RabbitMqConsumer : BackgroundService
                 $"Unable to connect to RabbitMQ after {startupRetryCount} attempts.",
                 lastException);
         }
+
         _channel.ExchangeDeclare(
             exchange: "orders.exchange",
             type: ExchangeType.Topic,
@@ -92,15 +87,15 @@ public class RabbitMqConsumer : BackgroundService
             arguments: null);
 
         _channel.QueueDeclare(
-            queue: "notification-service",
+            queue: "order-service",
             durable: true,
             exclusive: false,
             autoDelete: false,
             arguments: null);
         _channel.QueueBind(
-            queue: "notification-service",
+            queue: "order-service",
             exchange: "orders.exchange",
-            routingKey: "created");
+            routingKey: "email-sent");
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
 
@@ -117,7 +112,7 @@ public class RabbitMqConsumer : BackgroundService
 
             try
             {
-                var evt = JsonSerializer.Deserialize<OrderCreatedEvent>(json);
+                var evt = JsonSerializer.Deserialize<OrderEmailSentEvent>(json);
                 if (evt == null)
                 {
                     _logger.LogWarning("Invalid message payload: null event.");
@@ -126,48 +121,18 @@ public class RabbitMqConsumer : BackgroundService
                 }
 
                 using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+                var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
 
-                var exists = await db.Notifications.AnyAsync(n => n.EventId == evt.EventId);
-                if (exists)
+                var updated = await repo.UpdateStatusAsync(evt.OrderId, "EMAIL_SENT");
+                if (!updated)
                 {
-                    _logger.LogInformation("Duplicate event {EventId} ignored.", evt.EventId);
-                    _channel.BasicAck(ea.DeliveryTag, false);
-                    return;
-                }                
-
-                var notification = new Notification
+                    _logger.LogWarning("Order {OrderId} not found when applying EMAIL_SENT.", evt.OrderId);
+                }
+                else
                 {
-                    Id = Guid.NewGuid(),
-                    EventId = evt.EventId,
-                    OrderId = evt.OrderId,
-                    Email = evt.Email,
-                    Delivered = true,
-                    CreatedAt = evt.CreatedAt
-                };
+                    _logger.LogInformation("Order {OrderId} status updated to EMAIL_SENT.", evt.OrderId);
+                }
 
-                db.Notifications.Add(notification);
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("Email sent for EventId {EventId} to email {Email}",
-                    evt.EventId, evt.Email);
-
-                var sentEvent = new OrderEmailSentEvent
-                {
-                    EventId = Guid.NewGuid(),
-                    OrderId = evt.OrderId,
-                    Email = evt.Email,
-                    SentAt = DateTime.UtcNow
-                };
-                _publisher.Publish(sentEvent, "orders.exchange", "email-sent");
-
-                _channel.BasicAck(ea.DeliveryTag, false);
-            }
-            catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-            {
-                _logger.LogInformation(ex,
-                    "Duplicate notification insert detected. Acknowledging message. DeliveryTag {DeliveryTag}",
-                    ea.DeliveryTag);
                 _channel.BasicAck(ea.DeliveryTag, false);
             }
             catch (Exception ex)
@@ -177,10 +142,10 @@ public class RabbitMqConsumer : BackgroundService
                 _channel.BasicNack(ea.DeliveryTag, false, true);
             }
         };
-        
+
         _channel.BasicConsume(
-            queue: "notification-service",
-            autoAck: false, 
+            queue: "order-service",
+            autoAck: false,
             consumer: consumer);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -206,17 +171,5 @@ public class RabbitMqConsumer : BackgroundService
         _channel?.Dispose();
         _connection?.Dispose();
         base.Dispose();
-    }
-
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        if (ex.InnerException is SqlException sqlEx)
-        {
-            // 2601: Cannot insert duplicate key row in object with unique index
-            // 2627: Violation of PRIMARY KEY or UNIQUE KEY constraint
-            return sqlEx.Number is 2601 or 2627;
-        }
-
-        return false;
     }
 }

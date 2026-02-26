@@ -22,6 +22,7 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
                 maxRetryDelay: TimeSpan.FromSeconds(10),
                 errorNumbersToAdd: null);
         }));
+builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 builder.Services.AddHostedService<RabbitMqConsumer>();
 
 builder.Services.AddEndpointsApiExplorer();

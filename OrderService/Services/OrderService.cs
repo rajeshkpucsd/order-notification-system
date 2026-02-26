@@ -46,7 +46,7 @@ public class OrderService : IOrderService
                 Quantity = order.Quantity
             };
 
-            _publisher.Publish(evt,"order-created");
+            _publisher.Publish(evt, "orders.exchange", "created");
         }
         catch (Exception ex)
         {

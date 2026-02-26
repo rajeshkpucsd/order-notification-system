@@ -30,4 +30,21 @@ public class OrderRepository : IOrderRepository
     {
         return await _context.Orders.ToListAsync();
     }
+
+    public async Task<bool> UpdateStatusAsync(Guid id, string status)
+    {
+        var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id);
+        if (order == null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(order.Status, status, StringComparison.OrdinalIgnoreCase))
+        {
+            order.Status = status;
+            await _context.SaveChangesAsync();
+        }
+
+        return true;
+    }
 }

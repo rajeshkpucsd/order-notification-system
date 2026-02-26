@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 
-namespace OrderService.Messaging;
+namespace NotificationService.Messaging;
 
 public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
 {
